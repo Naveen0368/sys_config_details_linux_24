@@ -1,0 +1,73 @@
+---
+- name: Gather and save system configurations
+  hosts: oracle_servers
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Create a temporary directory on the managed node
+      file:
+        path: /tmp/sys_config
+        state: directory
+
+    - name: Collect system information and save to a file
+      copy:
+        content: |
+          Operating System: {{ ansible_facts['os_family'] }} {{ ansible_facts['distribution_version'] }}
+          Hostname: {{ ansible_facts['hostname'] }}
+          CPU: {{ ansible_facts['processor'] }}
+          Total Memory: {{ ansible_facts['memtotal_mb'] }} MB
+          Network Interfaces: {{ ansible_facts['interfaces'] }}
+          {% for iface in ansible_facts['interfaces'] %}
+          - {{ iface }}: {{ ansible_facts.get('ansible_' + iface, {}).get('ipv4', {}).get('address', 'No IPv4 address') }}
+          {% endfor %}
+          Disks: {{ ansible_facts['devices'] }}
+          Mounted Filesystems: {{ ansible_facts['mounts'] }}
+        dest: /tmp/sys_config/system_info.txt
+
+    - name: Fetch the system information file to the control node
+      fetch:
+        src: /tmp/sys_config/system_info.txt
+        dest: ./system_info/{{ inventory_hostname }}_system_info.txt
+        flat: yes
+
+    - name: Clean up temporary files on managed nodes
+      file:
+        path: /tmp/sys_config
+        state: absent
+
+    - name: Display the operating system
+      debug:
+        msg: "Operating System: {{ ansible_facts['os_family'] }} {{ ansible_facts['distribution_version'] }}"
+
+    - name: Display the hostname
+      debug:
+        msg: "Hostname: {{ ansible_facts['hostname'] }}"
+
+    - name: Display CPU information
+      debug:
+        msg: "CPU: {{ ansible_facts['processor'] }}"
+
+    - name: Display total memory
+      debug:
+        msg: "Total Memory: {{ ansible_facts['memtotal_mb'] }} MB"
+
+    - name: Display network interfaces
+      debug:
+        msg: "Network Interfaces: {{ ansible_facts['interfaces'] }}"
+
+    - name: Display IP addresses
+      debug:
+        msg: >
+          IP Addresses:
+          {% for iface in ansible_facts['interfaces'] %}
+          - {{ iface }}: {{ ansible_facts.get('ansible_' + iface, {}).get('ipv4', {}).get('address', 'No IPv4 address') }}
+          {% endfor %}
+
+    - name: Display disk information
+      debug:
+        msg: "Disks: {{ ansible_facts['devices'] }}"
+
+    - name: Display mounted filesystems
+      debug:
+        msg: "Mounted Filesystems: {{ ansible_facts['mounts'] }}"
+
